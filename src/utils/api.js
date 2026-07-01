@@ -3,12 +3,32 @@ const DEFAULT_API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000"
 export function getApiBaseUrl() {
   const saved = localStorage.getItem("research_agent_api_base");
   const envUrl = import.meta.env.VITE_API_URL;
+  let url = saved || DEFAULT_API_BASE;
+  
   if (envUrl) {
     if (!saved || saved === "http://localhost:8000" || saved === "http://127.0.0.1:8000") {
-      return envUrl;
+      url = envUrl;
     }
   }
-  return saved || DEFAULT_API_BASE;
+  
+  // Sanitize and auto-correct the URL
+  url = url.trim();
+  if (url) {
+    // 1. Ensure it starts with http:// or https://
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      if (url.includes("localhost") || url.includes("127.0.0.1")) {
+        url = "http://" + url;
+      } else {
+        url = "https://" + url;
+      }
+    }
+    // 2. Strip any trailing slashes
+    while (url.endsWith("/")) {
+      url = url.slice(0, -1);
+    }
+  }
+  
+  return url;
 }
 
 export function setApiBaseUrl(url) {
