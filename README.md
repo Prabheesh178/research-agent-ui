@@ -1,16 +1,71 @@
-# React + Vite
+# Multi-Agent Academic Research Station — Frontend UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This is the premium React-based frontend dashboard for the Multi-Agent Research Station. It features a space-themed, glassmorphic layout that provides visual agent pipeline tracing, manual profile customization, PDF uploading, and multi-format document downloads.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🎨 Design & Aesthetic Tokens
 
-## React Compiler
+* **Glassmorphic Layout**: Designed using modern styling tokens, featuring backdrop blur layers, subtle neon border glows (`indigo`, `purple`, `emerald`), and sleek space-colored backdrops (`#0a0e1a`).
+* **Dynamic Pipeline Tracking**: The agent sequence visualizer pulses in real-time with state highlights (`idle`, `running`, `completed`, `error`), complete with collapsible JSON logs.
+* **DNA Profile Panel**: Displays average sentence gauges, Connector pills, and manual DNA override panels.
+* **Interactive Chat Console**: Supports multi-file drag-and-drop uploads, instant input clearing, and citation badge parsing.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 🛠️ Local Setup & Run
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### 1. Prerequisites
+Make sure you have **Node.js (v18+)** and **npm** installed.
+
+### 2. Install Dependencies
+Run from the `frontend/` directory:
+```bash
+npm install
+```
+
+### 3. Run Development Server
+Start the local hot-reloaded development environment:
+```bash
+npm run dev
+```
+Open your browser and navigate to [http://localhost:5173](http://localhost:5173).
+
+### 4. Build for Production
+To bundle the static client files:
+```bash
+npm run build
+```
+
+---
+
+## 📂 Project Structure
+
+```text
+frontend/
+├── package.json
+├── tailwind.config.js          # Tailwind theme configurations
+├── index.html
+├── src/
+│   ├── main.jsx                # Application root
+│   ├── index.css               # Base CSS layout & glassmorphic utility classes
+│   ├── App.jsx                 # 3-column dashboard manager
+│   ├── components/
+│   │   ├── ChatInterface.jsx   # Chat list, uploading context, and export handlers
+│   │   ├── SettingsPanel.jsx   # Client-side API credentials & LLM providers
+│   │   ├── MemoryProfilePanel.jsx # Writing DNA gauges and metrics
+│   │   └── AgentPipelineVisualizer.jsx # Glowing node flow visualizer
+│   └── utils/
+│       └── api.js              # Fetch requests with base URL auto-sanitization
+└── README.md
+```
+
+---
+
+## ☁️ Deployment (Vercel)
+
+When deploying this frontend statically on Vercel:
+1. Link your frontend repository to Vercel.
+2. Configure this **Environment Variable**:
+   * `VITE_API_URL` = `https://<your-render-backend>.onrender.com`
+3. Click **Deploy**. Vercel will build the files and connect successfully to your Render backend.
