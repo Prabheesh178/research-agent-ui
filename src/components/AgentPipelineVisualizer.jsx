@@ -6,7 +6,8 @@ const STAGES = [
   { id: "RAG Agent", label: "RAG Agent", color: "teal" },
   { id: "Web Research Agent", label: "Web Research", color: "amber" },
   { id: "Data Analysis Agent", label: "Data Analysis", color: "emerald" },
-  { id: "Synthesis Agent", label: "Synthesis / Writer", color: "green" }, // matches Synthesis and Paper Writer
+  { id: "Synthesis Agent", label: "Synthesis / Writer", color: "green" }, // matches Synthesis, Paper Writer, and all 10 specialized agents
+  { id: "Confidence Scorer", label: "Confidence Scorer", color: "red" }, // matches Confidence Scorer and revision loops
   { id: "Humanizer", label: "Humanizer", color: "pink" },
   { id: "Memory Engine", label: "Memory Engine", color: "cyan" }
 ];
@@ -18,7 +19,18 @@ export default function AgentPipelineVisualizer({ logs, activeIntent }) {
     // Find logs for this stage
     const stageLogs = logs.filter(l => 
       l.agent === stageId || 
-      (stageId === "Synthesis Agent" && (l.agent === "Synthesis Agent" || l.agent === "Paper Writer Agent"))
+      (stageId === "Synthesis Agent" && (
+        l.agent === "Synthesis Agent" || 
+        l.agent === "Paper Writer Agent" ||
+        l.agent === "Citation Graph Agent" ||
+        l.agent === "Research Gap Finder Agent" ||
+        l.agent === "Multi-Paper Comparison Agent" ||
+        l.agent === "Methodology Suggester Agent" ||
+        l.agent === "Plagiarism-Safe Paraphraser Agent" ||
+        l.agent === "Abstract Grader Agent" ||
+        l.agent === "Reference Formatter Agent" ||
+        l.agent === "Research Proposal Writer Agent"
+      ))
     );
     
     if (stageLogs.length === 0) {
@@ -42,7 +54,18 @@ export default function AgentPipelineVisualizer({ logs, activeIntent }) {
     if (!logs) return "";
     const stageLogs = logs.filter(l => 
       l.agent === stageId || 
-      (stageId === "Synthesis Agent" && (l.agent === "Synthesis Agent" || l.agent === "Paper Writer Agent"))
+      (stageId === "Synthesis Agent" && (
+        l.agent === "Synthesis Agent" || 
+        l.agent === "Paper Writer Agent" ||
+        l.agent === "Citation Graph Agent" ||
+        l.agent === "Research Gap Finder Agent" ||
+        l.agent === "Multi-Paper Comparison Agent" ||
+        l.agent === "Methodology Suggester Agent" ||
+        l.agent === "Plagiarism-Safe Paraphraser Agent" ||
+        l.agent === "Abstract Grader Agent" ||
+        l.agent === "Reference Formatter Agent" ||
+        l.agent === "Research Proposal Writer Agent"
+      ))
     );
     if (stageLogs.length === 0) return "";
     return stageLogs[stageLogs.length - 1].message;
@@ -52,7 +75,18 @@ export default function AgentPipelineVisualizer({ logs, activeIntent }) {
     if (!logs) return null;
     const stageLogs = logs.filter(l => 
       l.agent === stageId || 
-      (stageId === "Synthesis Agent" && (l.agent === "Synthesis Agent" || l.agent === "Paper Writer Agent"))
+      (stageId === "Synthesis Agent" && (
+        l.agent === "Synthesis Agent" || 
+        l.agent === "Paper Writer Agent" ||
+        l.agent === "Citation Graph Agent" ||
+        l.agent === "Research Gap Finder Agent" ||
+        l.agent === "Multi-Paper Comparison Agent" ||
+        l.agent === "Methodology Suggester Agent" ||
+        l.agent === "Plagiarism-Safe Paraphraser Agent" ||
+        l.agent === "Abstract Grader Agent" ||
+        l.agent === "Reference Formatter Agent" ||
+        l.agent === "Research Proposal Writer Agent"
+      ))
     );
     const logWithData = stageLogs.find(l => l.data);
     return logWithData ? logWithData.data : null;
