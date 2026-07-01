@@ -1,7 +1,13 @@
-const DEFAULT_API_BASE = "http://localhost:8000";
+const DEFAULT_API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export function getApiBaseUrl() {
   const saved = localStorage.getItem("research_agent_api_base");
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    if (!saved || saved === "http://localhost:8000" || saved === "http://127.0.0.1:8000") {
+      return envUrl;
+    }
+  }
   return saved || DEFAULT_API_BASE;
 }
 
