@@ -227,7 +227,7 @@ export default function App() {
               <Brain className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-xs font-black uppercase tracking-widest bg-gradient-to-r from-sky-400 to-purple-400 bg-clip-text text-transparent">
-              Antigravity
+              Research Agent
             </h1>
           </div>
         </div>
@@ -278,10 +278,7 @@ export default function App() {
         >
           {/* COLLAPSED COLUMN: Icons Only */}
           {!sidebarOpen && (
-            <div className="w-12 py-4 flex flex-col items-center gap-5 text-slate-500">
-              <button onClick={() => setSidebarOpen(true)} className="p-1 hover:text-white transition">
-                <Menu className="w-4 h-4" />
-              </button>
+            <div className="w-12 py-6 flex flex-col items-center gap-5 text-slate-500">
               <button onClick={() => alert("New Chat")} className="p-1.5 hover:bg-slate-900 rounded-lg hover:text-white transition">
                 <Plus className="w-4 h-4" />
               </button>
@@ -308,7 +305,7 @@ export default function App() {
               <div className="p-4 border-b border-slate-900 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Brain className="w-4 h-4 text-sky-400" />
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-200">Antigravity Menu</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-200">Research Agent Menu</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <button 
