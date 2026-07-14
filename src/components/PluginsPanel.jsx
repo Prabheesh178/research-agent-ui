@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Trash2, Shield, Settings, ToggleLeft, ToggleRight, Search, Download, HelpCircle, Eye, EyeOff } from "lucide-react";
-import { getUserPlugins, toggleUserPlugin, authUserPlugin, queryResearchAgent } from "../utils/api";
+import { ArrowLeft, Trash2, Shield, Settings, ToggleLeft, ToggleRight, Search, Download, HelpCircle, Eye, EyeOff, Upload } from "lucide-react";
+import { getUserPlugins, toggleUserPlugin, authUserPlugin, queryResearchAgent, uploadLocalPlugin } from "../utils/api";
 
 const PRESET_PLUGINS = [
   { id: "zotero-sync", name: "Zotero Sync", tools_provided: ["fetch_library", "add_reference"], auth_type: "api_key", auth_fields: [{ key: "zotero_api_key", label: "Zotero API Key", type: "password" }] },
@@ -79,6 +79,25 @@ export default function PluginsPanel({ userId, onClose, onRefreshPlugins }) {
       setInstallStatus("❌ Connection failed: " + err.message);
     } finally {
       setInstalling(false);
+    }
+  };
+
+  const handleUploadPlugin = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setInstalling(true);
+    setInstallStatus(`Uploading and parsing ${file.name}...`);
+    try {
+      const res = await uploadLocalPlugin(userId, file);
+      setInstallStatus(res.message);
+      fetchPlugins();
+      if (onRefreshPlugins) onRefreshPlugins();
+    } catch (err) {
+      setInstallStatus("❌ Upload failed: " + err.message);
+    } finally {
+      setInstalling(false);
+      e.target.value = "";
     }
   };
 
@@ -236,6 +255,19 @@ export default function PluginsPanel({ userId, onClose, onRefreshPlugins }) {
             {installing ? "Connecting Plugin..." : "Connect Plugin"}
           </button>
         </form>
+
+        <div className="mt-3 border-t border-slate-900/60 pt-3">
+          <label className="w-full py-2 bg-slate-900 border border-slate-800 hover:border-purple-500/40 text-xs text-slate-200 font-bold-none rounded-lg transition flex items-center justify-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+            <Upload className="w-3.5 h-3.5 text-purple-400" /> Upload Local Plugin JSON
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleUploadPlugin}
+              className="hidden"
+              disabled={installing}
+            />
+          </label>
+        </div>
 
         {installStatus && (
           <div className="mt-3 p-2 bg-slate-900/60 border border-slate-800/80 rounded-lg text-[9px] text-slate-400 font-mono overflow-x-auto whitespace-pre-wrap max-h-20">

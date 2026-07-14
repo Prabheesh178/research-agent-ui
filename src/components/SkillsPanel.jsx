@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Trash2, Shield, ToggleLeft, ToggleRight, Search, Download, HelpCircle, ExternalLink } from "lucide-react";
-import { getUserSkills, toggleUserSkill, queryResearchAgent } from "../utils/api";
+import { ArrowLeft, Trash2, Shield, ToggleLeft, ToggleRight, Search, Download, HelpCircle, ExternalLink, Upload } from "lucide-react";
+import { getUserSkills, toggleUserSkill, queryResearchAgent, uploadLocalSkill } from "../utils/api";
 
 export default function SkillsPanel({ userId, onClose, onRefreshSkills }) {
   const [skills, setSkills] = useState([]);
@@ -68,6 +68,25 @@ export default function SkillsPanel({ userId, onClose, onRefreshSkills }) {
       setInstallStatus("❌ Installation failed: " + err.message);
     } finally {
       setInstalling(false);
+    }
+  };
+
+  const handleUploadSkill = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setInstalling(true);
+    setInstallStatus(`Uploading and parsing ${file.name}...`);
+    try {
+      const res = await uploadLocalSkill(userId, file);
+      setInstallStatus(res.message);
+      fetchSkills();
+      if (onRefreshSkills) onRefreshSkills();
+    } catch (err) {
+      setInstallStatus("❌ Upload failed: " + err.message);
+    } finally {
+      setInstalling(false);
+      e.target.value = "";
     }
   };
 
@@ -195,6 +214,19 @@ export default function SkillsPanel({ userId, onClose, onRefreshSkills }) {
             {installing ? "Installing Skill..." : "Install Skill"}
           </button>
         </form>
+
+        <div className="mt-3 border-t border-slate-900/60 pt-3">
+          <label className="w-full py-2 bg-slate-900 border border-slate-800 hover:border-sky-500/40 text-xs text-slate-200 font-bold-none rounded-lg transition flex items-center justify-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+            <Upload className="w-3.5 h-3.5 text-sky-400" /> Upload Local SKILL.md
+            <input
+              type="file"
+              accept=".md"
+              onChange={handleUploadSkill}
+              className="hidden"
+              disabled={installing}
+            />
+          </label>
+        </div>
 
         {installStatus && (
           <div className="mt-3 p-2.5 bg-slate-900/60 border border-slate-800/80 rounded-lg text-[10px] text-slate-400 font-mono overflow-x-auto whitespace-pre-wrap max-h-24">

@@ -169,3 +169,37 @@ export async function authUserPlugin(userId, pluginId, authData) {
   if (!response.ok) throw new Error("Failed to save plugin auth");
   return await response.json();
 }
+
+export async function uploadLocalSkill(userId, file) {
+  const baseUrl = getApiBaseUrl();
+  const formData = new FormData();
+  formData.append("user_id", userId);
+  formData.append("file", file);
+  
+  const response = await fetch(`${baseUrl}/api/skills/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to upload local skill");
+  }
+  return await response.json();
+}
+
+export async function uploadLocalPlugin(userId, file) {
+  const baseUrl = getApiBaseUrl();
+  const formData = new FormData();
+  formData.append("user_id", userId);
+  formData.append("file", file);
+  
+  const response = await fetch(`${baseUrl}/api/plugins/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to upload local plugin");
+  }
+  return await response.json();
+}
