@@ -35,7 +35,7 @@ export function setApiBaseUrl(url) {
   localStorage.setItem("research_agent_api_base", url);
 }
 
-export async function queryResearchAgent(prompt, userId, openaiKey, tavilyKey, files, llmBaseUrl, llmModel) {
+export async function queryResearchAgent(prompt, userId, openaiKey, tavilyKey, files, llmBaseUrl, llmModel, modelTier = "FREE") {
   const baseUrl = getApiBaseUrl();
   const formData = new FormData();
   
@@ -45,6 +45,7 @@ export async function queryResearchAgent(prompt, userId, openaiKey, tavilyKey, f
   if (tavilyKey) formData.append("tavily_key", tavilyKey);
   if (llmBaseUrl) formData.append("llm_base_url", llmBaseUrl);
   if (llmModel) formData.append("llm_model", llmModel);
+  formData.append("model_tier", modelTier);
   
   if (files && files.length > 0) {
     for (let i = 0; i < files.length; i++) {
@@ -117,5 +118,54 @@ export async function clearUserData(userId) {
   if (!response.ok) {
     throw new Error("Failed to wipe user data");
   }
+  return await response.json();
+}
+
+// Skills API Helpers
+export async function getUserSkills(userId) {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/api/skills/${userId}`);
+  if (!response.ok) throw new Error("Failed to fetch user skills");
+  return await response.json();
+}
+
+export async function toggleUserSkill(userId, skillId, enabled) {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/api/skills/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, item_id: skillId, enabled }),
+  });
+  if (!response.ok) throw new Error("Failed to toggle skill");
+  return await response.json();
+}
+
+// Plugins API Helpers
+export async function getUserPlugins(userId) {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/api/plugins/${userId}`);
+  if (!response.ok) throw new Error("Failed to fetch user plugins");
+  return await response.json();
+}
+
+export async function toggleUserPlugin(userId, pluginId, enabled) {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/api/plugins/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, item_id: pluginId, enabled }),
+  });
+  if (!response.ok) throw new Error("Failed to toggle plugin");
+  return await response.json();
+}
+
+export async function authUserPlugin(userId, pluginId, authData) {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/api/plugins/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, plugin_id: pluginId, auth_data: authData }),
+  });
+  if (!response.ok) throw new Error("Failed to save plugin auth");
   return await response.json();
 }

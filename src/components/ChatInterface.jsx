@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Send, Upload, FileText, Trash2, BookOpen, AlertTriangle, FileDown, Eye, CheckCircle, FileSpreadsheet, Loader2 } from "lucide-react";
-import { queryResearchAgent, getUserDocuments, deleteDocument } from "../utils/api";
+import { queryResearchAgent, getUserDocuments, deleteDocument, getUserSkills } from "../utils/api";
 
-export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl, llmModel, onPipelineStart, onPipelineComplete, onProfileUpdate }) {
+export default function ChatInterface({ 
+  userId, 
+  openaiKey, 
+  tavilyKey, 
+  llmBaseUrl, 
+  llmModel, 
+  modelTier, 
+  onPipelineStart, 
+  onPipelineComplete, 
+  onProfileUpdate 
+}) {
   const [prompt, setPrompt] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadedDocs, setUploadedDocs] = useState([]);
@@ -10,6 +20,9 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
   
   // Chat History
   const [messages, setMessages] = useState([]);
+  const [cardExpanded, setCardExpanded] = useState({});
+  const [skills, setSkills] = useState([]);
+  const [activeSkillHint, setActiveSkillHint] = useState(null);
   
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -24,6 +37,16 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
     }
   };
 
+  const loadSkills = async () => {
+    if (!userId) return;
+    try {
+      const res = await getUserSkills(userId);
+      setSkills(res.skills || []);
+    } catch (err) {
+      console.warn("Could not load skills for prompt triggers", err);
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -34,7 +57,9 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
 
   useEffect(() => {
     loadUploadedDocuments();
+    loadSkills();
     setMessages([]);
+    setActiveSkillHint(null);
   }, [userId]);
 
   const handleFileChange = (e) => {
@@ -56,6 +81,39 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
     } catch (err) {
       console.error("Failed to delete document", err);
     }
+  };
+
+  const handlePromptChange = (val) => {
+    setPrompt(val);
+    if (!val.trim()) {
+      setActiveSkillHint(null);
+      return;
+    }
+    const lowerVal = val.toLowerCase();
+    const matched = skills.find(s => 
+      s.enabled && s.trigger_keywords.some(kw => lowerVal.includes(kw.toLowerCase()))
+    );
+    if (matched) {
+      setActiveSkillHint(matched);
+    } else {
+      setActiveSkillHint(null);
+    }
+  };
+
+  const parseResponseContent = (content) => {
+    if (!content) return { card: null, body: "" };
+    
+    // Split on the boundary line
+    const separator = "─────────────────────────────────────";
+    if (content.includes(separator)) {
+      const parts = content.split(separator);
+      if (parts.length >= 3) {
+        const cardText = parts[1].trim();
+        const bodyText = parts.slice(2).join(separator).trim();
+        return { card: cardText, body: bodyText };
+      }
+    }
+    return { card: null, body: content };
   };
 
   const convertMarkdownToHtml = (markdown) => {
@@ -99,8 +157,9 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
   };
 
   const handleDownloadWord = (content, filename) => {
+    const { body } = parseResponseContent(content);
     const title = filename.replace(/\.(doc|docx)$/i, "");
-    const bodyHtml = convertMarkdownToHtml(content);
+    const bodyHtml = convertMarkdownToHtml(body);
     
     const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' "+
           "xmlns:w='urn:schemas-microsoft-com:office:word' "+
@@ -130,8 +189,9 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
   };
 
   const handleDownloadPDF = (content, filename) => {
+    const { body } = parseResponseContent(content);
     const title = filename.replace(/\.pdf$/i, "");
-    const bodyHtml = convertMarkdownToHtml(content);
+    const bodyHtml = convertMarkdownToHtml(body);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -179,14 +239,17 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
             }
             ul, ol {
               margin-bottom: 20px;
-              padding-left: 25px;
+              padding-left: 20px;
             }
             li {
               margin-bottom: 8px;
             }
+            strong {
+              color: #000;
+            }
             @media print {
-              body { margin: 0; padding: 0; }
-              @page { size: auto; margin: 20mm; }
+              body { margin: 20mm; }
+              h2, h3 { page-break-after: avoid; }
             }
           </style>
         </head>
@@ -196,7 +259,7 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
             window.onload = function() {
               window.print();
               setTimeout(function() { window.close(); }, 500);
-            };
+            }
           </script>
         </body>
       </html>
@@ -209,10 +272,11 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
     const currentPrompt = prompt.trim();
     if (!currentPrompt && selectedFiles.length === 0) return;
     
-    // Clear input box immediately
+    // Clear inputs
     setPrompt("");
+    setActiveSkillHint(null);
     
-    // Add user message to history
+    // Add user message
     const userMsg = {
       id: Date.now(),
       role: "user",
@@ -232,7 +296,8 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
         tavilyKey,
         selectedFiles,
         llmBaseUrl,
-        llmModel
+        llmModel,
+        modelTier
       );
       
       const agentMsg = {
@@ -245,7 +310,7 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
       
       setMessages(prev => [...prev, agentMsg]);
       setSelectedFiles([]); // Clear queue
-      loadUploadedDocuments(); // Refresh backend document list
+      loadUploadedDocuments(); // Refresh document list
       
       if (onPipelineComplete) onPipelineComplete(result.trace_logs, result.memory_profile);
       if (onProfileUpdate) onProfileUpdate();
@@ -267,22 +332,11 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
     }
   };
 
-  // Helper to render inline citations as glowing badges
   const renderCitations = (text) => {
     if (!text) return "";
     
-    // Convert [PDF: filename, p.X] and [X] to badges
     const pdfRegex = /\[PDF:\s*([^,\]]+),\s*p\.(\d+)\]/g;
     const webRegex = /\[(\d+)\]/g;
-    
-    let parts = [];
-    let lastIndex = 0;
-    
-    // We do a simple replacement for parsing. For simplicity and robustness in React render,
-    // we can parse the text block into HTML segments or simple spans.
-    // Let's create an elegant component parser inline or simply format text to HTML.
-    // To avoid dangerouslySetInnerHTML issues, let's build an HTML string and render it carefully, 
-    // or convert references. Let's do a simple markup replacement.
     
     let formatted = text
       .replace(pdfRegex, '<span class="bg-indigo-950 text-indigo-300 border border-indigo-500/30 text-[10px] px-1.5 py-0.5 rounded font-bold mx-0.5 hover:bg-indigo-900 transition-colors" title="$1 (p.$2)">PDF: $1, p.$2</span>')
@@ -292,7 +346,8 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
   };
 
   const downloadFile = (content, filename, contentType) => {
-    const blob = new Blob([content], { type: contentType });
+    const { body } = parseResponseContent(content);
+    const blob = new Blob([body], { type: contentType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -301,6 +356,10 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const toggleCard = (msgId) => {
+    setCardExpanded(prev => ({ ...prev, [msgId]: !prev[msgId] }));
   };
 
   return (
@@ -320,66 +379,59 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
         {/* Drag & Drop Area */}
         <div 
           onClick={() => fileInputRef.current.click()}
-          className="border-2 border-dashed border-slate-800 hover:border-sky-500/50 bg-slate-950/20 hover:bg-sky-950/10 cursor-pointer rounded-lg p-5 transition-all flex flex-col items-center justify-center text-center gap-2 mb-4"
+          className="border border-dashed border-slate-800 hover:border-sky-500/40 rounded-lg p-4 text-center cursor-pointer transition bg-slate-950/20"
         >
-          <Upload className="w-7 h-7 text-slate-500 hover:text-sky-400 transition-colors" />
-          <div>
-            <p className="text-xs font-semibold text-slate-300">Click to upload Research PDFs or Data Sheets</p>
-            <p className="text-[10px] text-slate-500 mt-0.5">PDFs will be chunked/vectorized; CSV/Excel/JSON will be profiled and analyzed</p>
-          </div>
           <input 
             type="file" 
             ref={fileInputRef} 
             onChange={handleFileChange} 
             multiple 
-            accept=".pdf,.csv,.tsv,.json,.xlsx,.xls" 
             className="hidden" 
+            accept=".pdf,.csv,.tsv,.json,.xlsx,.xls"
           />
+          <Upload className="w-5 h-5 text-sky-400 mx-auto mb-2" />
+          <span className="text-xs text-slate-400 block font-medium">Drag & Drop references here, or click to browse</span>
+          <span className="text-[9px] text-slate-600 block mt-1">Accepts: PDF (literature context) & CSV/Excel/JSON (data sheets)</span>
         </div>
 
-        {/* Selected files queue */}
+        {/* Selected queue */}
         {selectedFiles.length > 0 && (
-          <div className="mb-4">
-            <span className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5 font-bold">Files Queue (To Upload & Ingest)</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {selectedFiles.map((file, idx) => (
-                <div key={idx} className="bg-sky-950/20 border border-sky-500/20 rounded p-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {file.name.toLowerCase().endsWith(".pdf") ? (
-                      <FileText className="w-4 h-4 text-sky-400 shrink-0" />
-                    ) : (
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />
-                    )}
-                    <span className="text-xs text-slate-300 truncate font-mono">{file.name}</span>
-                  </div>
-                  <button onClick={() => removeSelectedFile(idx)} className="text-slate-500 hover:text-red-400 transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
+          <div className="mt-3 p-3 bg-slate-900/30 border border-slate-800 rounded-lg space-y-1.5">
+            <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-bold">Files Queue for Ingestion:</span>
+            {selectedFiles.map((f, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 text-xs bg-slate-950/50 p-1.5 rounded border border-slate-900">
+                <span className="flex items-center gap-2 text-slate-300 min-w-0">
+                  {f.name.endsWith(".pdf") ? (
+                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  ) : (
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  )}
+                  <span className="truncate">{f.name}</span>
+                </span>
+                <button type="button" onClick={() => removeSelectedFile(i)} className="text-slate-600 hover:text-rose-400 p-0.5 rounded transition">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Active documents list */}
+        {/* Ingested list */}
         {uploadedDocs.length > 0 && (
-          <div>
-            <span className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5 font-bold">Active Knowledge Base (Embedded PDFs & Data Sheets)</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[140px] overflow-y-auto pr-1">
+          <div className="mt-4 space-y-2 border-t border-slate-900 pt-3">
+            <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-bold mb-2">Ingested Session Library:</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
               {uploadedDocs.map((doc) => (
-                <div key={doc.id} className="bg-slate-950/60 border border-slate-900 rounded p-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {doc.filename.toLowerCase().endsWith(".pdf") ? (
-                      <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                <div key={doc.id} className="flex items-center justify-between gap-3 text-[10px] bg-slate-900/20 p-2 rounded border border-slate-900">
+                  <span className="flex items-center gap-1.5 text-slate-400 min-w-0">
+                    {doc.filename.endsWith(".pdf") ? (
+                      <FileText className="w-3.5 h-3.5 text-indigo-500/80 shrink-0" />
                     ) : (
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-500/80 shrink-0" />
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500/80 shrink-0" />
                     )}
-                    <div className="min-w-0">
-                      <span className="block text-xs text-slate-300 truncate font-mono">{doc.filename}</span>
-                      <span className="block text-[8px] text-slate-500">{new Date(doc.upload_time).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDeleteUploaded(doc.id)} className="text-slate-600 hover:text-red-400 transition-colors ml-2">
+                    <span className="truncate" title={doc.filename}>{doc.filename}</span>
+                  </span>
+                  <button type="button" onClick={() => handleDeleteUploaded(doc.id)} className="text-slate-600 hover:text-rose-500 p-0.5 rounded transition">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -389,14 +441,17 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
         )}
       </div>
 
-      {/* Primary Query Console */}
-      <div className="glass-panel rounded-xl p-5 flex-1 flex flex-col justify-between glow-purple min-h-[400px]">
-        {/* Output area */}
-        <div className="flex-1 overflow-y-auto mb-4 border border-slate-900/60 bg-slate-950/20 rounded-lg p-4 max-h-[500px] space-y-4">
-          {messages.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center text-center h-full py-12 text-slate-500">
-              <BookOpen className="w-10 h-10 text-slate-700 mb-2" />
-              <p className="text-xs font-semibold text-slate-400">Research Workstation Idle</p>
+      {/* Main Chat Interface Panel */}
+      <div className="flex-1 glass-panel rounded-xl p-5 flex flex-col min-h-[400px] glow-purple relative overflow-hidden">
+        
+        {/* Messages Stream */}
+        <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
+          {messages.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center text-center p-6">
+              <div className="w-12 h-12 rounded-xl bg-purple-950/30 border border-purple-500/20 flex items-center justify-center mb-3">
+                <Sparkles className="w-6 h-6 text-purple-400 animate-pulse" />
+              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Cognitive Pipeline Console</h3>
               <p className="text-[10px] text-slate-600 mt-1 max-w-sm">
                 Enter a question or write prompt below. Upload references on the left to inject local context and methodology parameters.
               </p>
@@ -431,8 +486,33 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
             } else {
               // Assistant message
               const responseData = msg.data;
+              const { card, body } = parseResponseContent(msg.content);
+              
               return (
                 <div key={msg.id} className="space-y-4 border-b border-slate-900/60 pb-4 last:border-0 last:pb-0">
+                  
+                  {/* MONOSPACE PRE-RUN TRANSPARENCY CARD */}
+                  {card && (
+                    <div className="bg-slate-950/80 border border-slate-900 rounded-lg overflow-hidden max-w-lg">
+                      <div 
+                        onClick={() => toggleCard(msg.id)}
+                        className="px-4 py-2 bg-slate-900/60 flex items-center justify-between cursor-pointer border-b border-slate-900 hover:bg-slate-900 transition-colors"
+                      >
+                        <span className="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1.5">
+                          ⚡ Pre-Run Pipeline Plan
+                        </span>
+                        <span className="text-[9px] uppercase font-bold text-slate-500">
+                          {cardExpanded[msg.id] ? "Hide Detail" : "View Plan"}
+                        </span>
+                      </div>
+                      {cardExpanded[msg.id] && (
+                        <pre className="p-4 text-[9px] font-mono text-slate-400 leading-relaxed overflow-x-auto select-all max-h-40 bg-slate-950">
+                          {card}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex justify-start">
                     <div className="glass-panel border-slate-800 rounded-lg px-4 py-3 w-full text-xs text-slate-200 glow-purple">
                       <div className="flex items-center justify-between gap-8 mb-2 pb-1 border-b border-slate-900">
@@ -468,7 +548,7 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
                             <FileDown className="w-3 h-3 text-red-400" />
                             PDF
                           </button>
-                          {msg.content.includes("## TITLE") && (
+                          {body.includes("## TITLE") && (
                             <button 
                               type="button"
                               onClick={() => downloadFile(msg.content, "research_paper.tex", "text/plain")}
@@ -482,7 +562,7 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
                         </div>
                       </div>
 
-                      {renderCitations(msg.content)}
+                      {renderCitations(body)}
                     </div>
                   </div>
 
@@ -501,11 +581,11 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
                     </div>
                   )}
 
-                  {/* Bibliography / References segment */}
+                  {/* Web Papers Bibliography */}
                   {responseData.references && responseData.references.length > 0 && (
                     <div className="pl-4 border-l-2 border-amber-500/30 space-y-2">
-                      <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-bold">Research Bibliography</span>
-                      <div className="grid grid-cols-1 gap-2 font-mono text-[9px]">
+                      <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-bold">Retrieved Web Bibliography</span>
+                      <div className="space-y-2">
                         {responseData.references.map((paper, idx) => (
                           <div key={idx} className="bg-slate-950/40 p-2.5 border border-slate-900 rounded">
                             <div className="flex justify-between items-start gap-2">
@@ -549,28 +629,37 @@ export default function ChatInterface({ userId, openaiKey, tavilyKey, llmBaseUrl
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Panel */}
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <textarea
-            className="flex-1 min-h-[44px] max-h-[120px] text-xs bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 transition-colors resize-none font-sans"
-            placeholder="Type a research query... (e.g. 'Summarize federated learning in healthcare' or 'Write an abstract on edge AI')"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-          />
-          <button
-            type="submit"
-            disabled={loading || (!prompt.trim() && selectedFiles.length === 0)}
-            className="bg-purple-600 hover:bg-purple-500 disabled:bg-slate-900 disabled:text-slate-600 text-white rounded-lg px-4 flex items-center justify-center transition-colors shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
+        {/* Input Panel with Skill Triggers banner */}
+        <div className="space-y-2">
+          {activeSkillHint && (
+            <div className="bg-sky-950/30 border border-sky-500/20 px-3 py-1.5 rounded-t-lg text-[10px] text-sky-400 flex items-center gap-2 animate-pulse">
+              <span>🔧</span>
+              <span className="font-bold">Skill matched: {activeSkillHint.name}</span>
+              <span className="text-slate-500">— Trigger keyword detected</span>
+            </div>
+          )}
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <textarea
+              className="flex-1 min-h-[44px] max-h-[120px] text-xs bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 transition-colors resize-none font-sans"
+              placeholder="Type a research query or system command (e.g. '/install owner/repo')..."
+              value={prompt}
+              onChange={(e) => handlePromptChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+            />
+            <button
+              type="submit"
+              disabled={loading || (!prompt.trim() && selectedFiles.length === 0)}
+              className="bg-purple-600 hover:bg-purple-500 disabled:bg-slate-900 disabled:text-slate-600 text-white rounded-lg px-4 flex items-center justify-center transition-colors shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
