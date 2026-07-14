@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, Upload, FileText, Trash2, BookOpen, AlertTriangle, FileDown, Eye, CheckCircle, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Send, Upload, FileText, Trash2, BookOpen, AlertTriangle, FileDown, Eye, CheckCircle, FileSpreadsheet, Loader2, Sparkles } from "lucide-react";
 import { queryResearchAgent, getUserDocuments, deleteDocument, getUserSkills } from "../utils/api";
 
 export default function ChatInterface({ 
